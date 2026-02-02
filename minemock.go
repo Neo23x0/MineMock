@@ -182,6 +182,8 @@ func main() {
 		log.Printf("Threads: %d", *threads)
 		log.Printf("CPU Load: %d%%", *cpuLoad)
 		log.Printf("Stratum Protocol: %v", *stratum)
+		log.Printf("Donate Level: %d%% (simulated)", *donate)
+		log.Printf("Background Mode: %v (simulated)", *background)
 		log.Printf("NOTE: This is a simulation tool. No actual mining will occur.")
 	}
 
