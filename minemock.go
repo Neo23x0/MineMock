@@ -520,23 +520,31 @@ func simulateWorker(id int, load int, wg *sync.WaitGroup, stopChan chan bool, ve
 // This actually consumes CPU time instead of just sleeping
 func busyWorkFor(duration time.Duration) {
 	start := time.Now()
-	var result uint64 = 1
-	iteration := uint64(0)
+	
+	// Use a larger buffer to force memory access (harder to optimize away)
+	var buffer [1024]uint64
+	var idx int
 	
 	// Keep doing work until the duration has passed
 	for time.Since(start) < duration {
-		// CPU-intensive calculation
-		result = result*iteration + iteration*iteration
-		if result > 1<<60 {
-			result = 1
-		}
-		iteration++
-		
-		// Prevent the loop from being optimized away
-		if iteration%1000000 == 0 {
-			_ = result
+		// Multiple operations per iteration to maximize CPU usage
+		// Use crypto-like operations that are hard to optimize away
+		for i := 0; i < 1000; i++ {
+			// Mix operations: mul, add, xor, shift - similar to hash rounds
+			buffer[idx] ^= buffer[(idx+1)%1024] * 0x9e3779b97f4a7c15
+			buffer[idx] += uint64(i) * 0xbf58476d1ce4e5b9
+			buffer[idx] = (buffer[idx] << 13) | (buffer[idx] >> 51)
+			buffer[idx] *= 0x94d049bb133111eb
+			
+			idx = (idx + 1) % 1024
 		}
 	}
-	// Use the result to prevent optimization
-	_ = result
+	
+	// Final mix to ensure compiler keeps the buffer
+	var final uint64
+	for i := 0; i < 1024; i++ {
+		final ^= buffer[i]
+	}
+	// Use result via atomic to prevent optimization
+	atomic.AddUint64(&shareCount, final%1)
 }
