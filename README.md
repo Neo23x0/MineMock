@@ -1,4 +1,4 @@
-![MineMock logo](minemock-logo.png)
+![MineMock logo](minemock.png)
 
 # MineMock
 
