@@ -122,7 +122,7 @@ func customUsage() {
 	fmt.Fprintf(os.Stderr, "  gen-address       Generate test wallet addresses\n")
 	fmt.Fprintf(os.Stderr, "\nOptions:\n")
 	flag.PrintDefaults()
-	fmt.Fprintf(os.Stderr, "\nExamples:\n")
+	fmt.Fprintf(os.Stderr, "\nReady-to-Use Examples (copy & paste):\n")
 	
 	// Generate 3 random examples
 	base58Chars := "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"
