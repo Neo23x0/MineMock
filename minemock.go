@@ -113,7 +113,37 @@ func generateMoneroAddress(alphabet string, prefix byte, length int) string {
 	return string(addr)
 }
 
+// customUsage prints a custom usage message with examples
+func customUsage() {
+	fmt.Fprintf(os.Stderr, "Usage: minemock [options]\n")
+	fmt.Fprintf(os.Stderr, "   or: minemock gen-address\n")
+	fmt.Fprintf(os.Stderr, "\nMineMock - A harmless cryptocurrency miner simulator for detection testing.\n\n")
+	fmt.Fprintf(os.Stderr, "Commands:\n")
+	fmt.Fprintf(os.Stderr, "  gen-address       Generate test wallet addresses\n")
+	fmt.Fprintf(os.Stderr, "\nOptions:\n")
+	flag.PrintDefaults()
+	fmt.Fprintf(os.Stderr, "\nExamples:\n")
+	
+	// Generate 3 random examples
+	base58Chars := "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"
+	rand.Seed(time.Now().UnixNano())
+	
+	for i := 0; i < 3; i++ {
+		pool := knownPools[rand.Intn(len(knownPools))]
+		wallet := generateMoneroAddress(base58Chars, '4', 95)
+		cpuLoad := rand.Intn(60) + 20 // 20-80%
+		threads := rand.Intn(4) + 2   // 2-6 threads
+		
+		fmt.Fprintf(os.Stderr, "  minemock -o %s:%s -u %s -t %d --cpu-load=%d --donate-level=0\n",
+			pool.Address, pool.Port, wallet, threads, cpuLoad)
+	}
+	fmt.Fprintf(os.Stderr, "\nFlags can use either -flag or --flag style (e.g., -v or --v, -stratum or --stratum).\n")
+}
+
 func main() {
+	// Set custom usage
+	flag.Usage = customUsage
+	
 	// Handle subcommands before flag parsing
 	if len(os.Args) > 1 && os.Args[1] == "gen-address" {
 		generateWalletAddress()
