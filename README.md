@@ -21,6 +21,7 @@ MineMock is a small Golang tool that imitates the behavior patterns of cryptocur
 - **Command-line mimicry** — Accepts common miner flags like `-o` (pool), `-u` (wallet/user), `-p` (password), `-t` (threads)
 - **Built-in pool list** — Reference list of top 10 mining pools (`--list-pools`)
 - **Wallet address generator** — Generate realistic test addresses (`gen-address` command)
+- **Ready-to-Use Examples** — Run `minemock -h` to get 3 random, copy-pasteable command lines with realistic pool addresses, wallet addresses, and CPU load settings
 - **No actual mining** — No hash calculations, no wallet addresses validated, no real shares submitted
 
 ## Purpose
@@ -77,6 +78,30 @@ Run:
 ```
 
 ## Usage Examples
+
+### 🚀 Quick Start — Ready-to-Use Examples
+
+The easiest way to get started: just run the help command and copy-paste one of the ready-to-use examples!
+
+```bash
+minemock -h
+```
+
+This will display **3 randomized, copy-pasteable command lines** featuring:
+- A random mining pool from the top 10 list
+- A randomly generated wallet address (realistic-looking but invalid)
+- Random CPU load (20-80%)
+- `--donate-level=0` (because malware authors are greedy!)
+
+**Example output:**
+```
+Ready-to-Use Examples (copy & paste):
+  minemock -o xmr.c3pool.org:3333 -u 4pDTu2yX1Mu9NkL6oozZxNXLMRR8Gyo226BNnt19Jqc6EoNYtcPvhuWwooUPR3FJKSXFwWVpQ2yGdUzYtujq3XxBGzDvEbd -t 3 --cpu-load=45 --donate-level=0
+  minemock -o xmr.hashvault.pro:3333 -u 4dBUoiXWyodL1t3yG4wCWrBVxmfMzuPjN6VqBCP9tzHc94vxpN7sx26k2HcZLX9PKPiUWoK3eQhRLDRNfWvZkxyddMgLGk9 -t 5 --cpu-load=67 --donate-level=0
+  minemock -o pool.minexmr.com:4444 -u 4DsXj3ZSiRr6y2bGMhYZ7xYSxG8KqJxe6Argfmc7CNwT2hZmbz5AKf25jvpBaf39pE3J5Pn1XKMoNtFDrqsrRajpTNxckGC -t 2 --cpu-load=47 --donate-level=0
+```
+
+Just copy one of these lines and paste it into your terminal for instant suspicious-looking activity! 🎯
 
 ### Generate test wallet addresses
 
