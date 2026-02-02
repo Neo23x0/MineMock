@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"crypto/sha256"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -516,35 +517,39 @@ func simulateWorker(id int, load int, wg *sync.WaitGroup, stopChan chan bool, ve
 	}
 }
 
-// busyWorkFor performs CPU-intensive calculations for the specified duration
-// This actually consumes CPU time instead of just sleeping
+// busyWorkFor performs CPU-intensive SHA-256 hashing for the specified duration
+// Uses actual crypto operations that cannot be optimized away by the compiler
 func busyWorkFor(duration time.Duration) {
 	start := time.Now()
 	
-	// Use a larger buffer to force memory access (harder to optimize away)
-	var buffer [1024]uint64
-	var idx int
+	// Data to hash - changes each iteration to prevent caching
+	data := make([]byte, 64)
+	var result [32]byte
+	
+	// Fill with initial pattern
+	for i := range data {
+		data[i] = byte(i)
+	}
+	
+	iteration := uint64(0)
 	
 	// Keep doing work until the duration has passed
 	for time.Since(start) < duration {
-		// Multiple operations per iteration to maximize CPU usage
-		// Use crypto-like operations that are hard to optimize away
-		for i := 0; i < 1000; i++ {
-			// Mix operations: mul, add, xor, shift - similar to hash rounds
-			buffer[idx] ^= buffer[(idx+1)%1024] * 0x9e3779b97f4a7c15
-			buffer[idx] += uint64(i) * 0xbf58476d1ce4e5b9
-			buffer[idx] = (buffer[idx] << 13) | (buffer[idx] >> 51)
-			buffer[idx] *= 0x94d049bb133111eb
-			
-			idx = (idx + 1) % 1024
-		}
+		// Modify data slightly each iteration
+		data[iteration%64] = byte(iteration)
+		data[(iteration+1)%64] = byte(iteration >> 8)
+		data[(iteration+2)%64] = byte(iteration >> 16)
+		data[(iteration+3)%64] = byte(iteration >> 24)
+		
+		// Perform SHA-256 hash - this is CPU intensive and cannot be optimized away
+		result = sha256.Sum256(data)
+		
+		// Feed result back into data to create dependency chain
+		copy(data[32:], result[:])
+		
+		iteration++
 	}
 	
-	// Final mix to ensure compiler keeps the buffer
-	var final uint64
-	for i := 0; i < 1024; i++ {
-		final ^= buffer[i]
-	}
-	// Use result via atomic to prevent optimization
-	atomic.AddUint64(&shareCount, final%1)
+	// Use the final result to prevent dead code elimination
+	atomic.AddUint64(&shareCount, uint64(result[0]))
 }
