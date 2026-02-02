@@ -1,25 +1,82 @@
 package main
 
 import (
+	"bufio"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"log"
+	"math/rand"
 	"net"
 	"os"
 	"runtime"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
+)
+
+// StratumRequest represents a Stratum protocol request
+type StratumRequest struct {
+	ID     interface{}   `json:"id"`
+	Method string        `json:"method"`
+	Params []interface{} `json:"params"`
+}
+
+// StratumResponse represents a Stratum protocol response
+type StratumResponse struct {
+	ID     interface{} `json:"id"`
+	Result interface{} `json:"result"`
+	Error  interface{} `json:"error,omitempty"`
+}
+
+// StratumNotification represents a job notification from the pool
+type StratumNotification struct {
+	ID     interface{}   `json:"id,omitempty"`
+	Method string        `json:"method"`
+	Params []interface{} `json:"params"`
+}
+
+// Known mining pools for reference and quick selection
+type PoolInfo struct {
+	Name    string
+	Address string
+	Port    string
+	Algo    string
+}
+
+var knownPools = []PoolInfo{
+	{Name: "supportxmr", Address: "pool.supportxmr.com", Port: "3333", Algo: "RandomX"},
+	{Name: "xmrpool", Address: "xmrpool.eu", Port: "3333", Algo: "RandomX"},
+	{Name: "moneroocean", Address: "gulf.moneroocean.stream", Port: "10128", Algo: "Auto"},
+	{Name: "nanopool", Address: "xmr-eu1.nanopool.org", Port: "10300", Algo: "RandomX"},
+	{Name: "c3pool", Address: "xmr.c3pool.org", Port: "3333", Algo: "RandomX"},
+	{Name: "minexmr", Address: "pool.minexmr.com", Port: "4444", Algo: "RandomX"},
+	{Name: "hashvault", Address: "xmr.hashvault.pro", Port: "3333", Algo: "RandomX"},
+	{Name: "herominers", Address: "xmr.herominers.com", Port: "10191", Algo: "RandomX"},
+	{Name: "kryptex", Address: "xmr.kryptex.network", Port: "3333", Algo: "RandomX"},
+	{Name: "unmineable", Address: "rx.unmineable.com", Port: "3333", Algo: "RandomX"},
+}
+
+var (
+	shareCount  uint64
+	jobCount    uint64
+	stratumConn net.Conn
+	stratumMu   sync.Mutex
 )
 
 func main() {
 	// Common miner flags (XMRig-style)
-	pool := flag.String("o", "", "pool address (e.g., pool.minexmr.com:4444)")
+	pool := flag.String("o", "", "pool address (e.g., pool.supportxmr.com:3333)")
 	user := flag.String("u", "", "username/wallet address")
 	pass := flag.String("p", "x", "password")
 	threads := flag.Int("t", runtime.NumCPU(), "number of threads")
 	donate := flag.Int("donate-level", 1, "donate level (simulated)")
 	background := flag.Bool("B", false, "run in background (simulated)")
+	
+	// Protocol simulation
+	stratum := flag.Bool("stratum", false, "enable Stratum protocol simulation (JSON-RPC)")
+	listPools := flag.Bool("list-pools", false, "list top mining pools and exit")
 	
 	// Additional flags for realism
 	cpuLoad := flag.Int("cpu-load", 50, "simulated CPU load percentage (1-100)")
@@ -34,8 +91,22 @@ func main() {
 	
 	flag.Parse()
 
+	// Handle list-pools flag
+	if *listPools {
+		fmt.Println("Top Mining Pools for Testing:")
+		fmt.Println("==============================")
+		for i, p := range knownPools {
+			fmt.Printf("%2d. %-15s %-30s Port: %-5s Algo: %s\n", 
+				i+1, p.Name, p.Address, p.Port, p.Algo)
+		}
+		fmt.Println("\nUsage example:")
+		fmt.Printf("  minemock -o %s:%s -u YOUR_WALLET -t 4 --stratum\n", 
+			knownPools[0].Address, knownPools[0].Port)
+		os.Exit(0)
+	}
+
 	if *pool == "" {
-		fmt.Fprintln(os.Stderr, "pool address (-o) is required")
+		fmt.Fprintln(os.Stderr, "pool address (-o) is required (use -list-pools to see options)")
 		flag.Usage()
 		os.Exit(1)
 	}
@@ -56,13 +127,19 @@ func main() {
 		log.Printf("User: %s", *user)
 		log.Printf("Threads: %d", *threads)
 		log.Printf("CPU Load: %d%%", *cpuLoad)
+		log.Printf("Stratum Protocol: %v", *stratum)
 		log.Printf("NOTE: This is a simulation tool. No actual mining will occur.")
 	}
 
-	// Simulate pool connection
-	conn := simulatePoolConnection(cleanPool, *verbose)
-	if conn != nil {
-		defer conn.Close()
+	// Handle Stratum protocol or simple TCP connection
+	if *stratum {
+		go runStratumClient(cleanPool, *user, *pass, *verbose)
+	} else {
+		// Simple TCP connection for network artifact only
+		conn := simulatePoolConnection(cleanPool, *verbose)
+		if conn != nil {
+			defer conn.Close()
+		}
 	}
 
 	// Start CPU load simulation
@@ -72,6 +149,11 @@ func main() {
 	for i := 0; i < *threads; i++ {
 		wg.Add(1)
 		go simulateWorker(i, *cpuLoad, &wg, stopChan, *verbose)
+	}
+
+	// Start periodic stats reporter
+	if *stratum {
+		go statsReporter(*verbose)
 	}
 
 	// Handle duration
@@ -94,6 +176,189 @@ func main() {
 	
 	if *verbose {
 		log.Printf("MineMock stopped.")
+	}
+}
+
+// runStratumClient connects to a pool and speaks the Stratum protocol
+func runStratumClient(poolAddr, user, pass string, verbose bool) {
+	// Add default port if not specified
+	if !strings.Contains(poolAddr, ":") {
+		poolAddr = poolAddr + ":3333"
+	}
+
+	if verbose {
+		log.Printf("[Stratum] Connecting to pool: %s", poolAddr)
+	}
+
+	// Establish TCP connection
+	conn, err := net.DialTimeout("tcp", poolAddr, 10*time.Second)
+	if err != nil {
+		if verbose {
+			log.Printf("[Stratum] Pool connection failed: %v", err)
+		}
+		return
+	}
+	defer conn.Close()
+
+	stratumMu.Lock()
+	stratumConn = conn
+	stratumMu.Unlock()
+
+	if verbose {
+		log.Printf("[Stratum] Connected to pool")
+	}
+
+	// Create buffered reader/writer
+	reader := bufio.NewReader(conn)
+	writer := bufio.NewWriter(conn)
+
+	// Send mining.subscribe
+	if err := sendStratumRequest(writer, 1, "mining.subscribe", []interface{}{"MineMock/1.0"}); err != nil {
+		if verbose {
+			log.Printf("[Stratum] Failed to send subscribe: %v", err)
+		}
+		return
+	}
+
+	// Read subscribe response
+	var subResp StratumResponse
+	if err := readStratumResponse(reader, &subResp); err != nil {
+		if verbose {
+			log.Printf("[Stratum] Failed to read subscribe response: %v", err)
+		}
+		return
+	}
+
+	if verbose {
+		log.Printf("[Stratum] Subscribed to pool")
+	}
+
+	// Send mining.authorize
+	worker := user
+	if !strings.Contains(user, ".") {
+		worker = user + ".minemock"
+	}
+	if err := sendStratumRequest(writer, 2, "mining.authorize", []interface{}{worker, pass}); err != nil {
+		if verbose {
+			log.Printf("[Stratum] Failed to send authorize: %v", err)
+		}
+		return
+	}
+
+	// Read authorize response
+	var authResp StratumResponse
+	if err := readStratumResponse(reader, &authResp); err != nil {
+		if verbose {
+			log.Printf("[Stratum] Failed to read authorize response: %v", err)
+		}
+		return
+	}
+
+	if verbose {
+		log.Printf("[Stratum] Authorized as worker: %s", worker)
+	}
+
+	// Main loop: read notifications and send periodic submits
+	ticker := time.NewTicker(5 * time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ticker.C:
+			// Simulate submitting a share
+			if err := submitShare(writer); err != nil {
+				if verbose {
+					log.Printf("[Stratum] Failed to submit share: %v", err)
+				}
+			} else {
+				atomic.AddUint64(&shareCount, 1)
+				if verbose {
+					log.Printf("[Stratum] Share submitted")
+				}
+			}
+		default:
+			// Try to read with timeout
+			conn.SetReadDeadline(time.Now().Add(100 * time.Millisecond))
+			var notif StratumNotification
+			if err := readStratumNotification(reader, &notif); err == nil {
+				if notif.Method == "mining.notify" {
+					atomic.AddUint64(&jobCount, 1)
+					if verbose {
+						log.Printf("[Stratum] New job received")
+					}
+				} else if notif.Method == "mining.set_difficulty" {
+					if verbose {
+						log.Printf("[Stratum] Difficulty adjusted")
+					}
+				}
+			}
+		}
+	}
+}
+
+// sendStratumRequest sends a JSON-RPC request to the pool
+func sendStratumRequest(writer *bufio.Writer, id interface{}, method string, params []interface{}) error {
+	req := StratumRequest{
+		ID:     id,
+		Method: method,
+		Params: params,
+	}
+	
+	data, err := json.Marshal(req)
+	if err != nil {
+		return err
+	}
+	
+	_, err = writer.WriteString(string(data) + "\n")
+	if err != nil {
+		return err
+	}
+	
+	return writer.Flush()
+}
+
+// readStratumResponse reads a JSON-RPC response from the pool
+func readStratumResponse(reader *bufio.Reader, resp *StratumResponse) error {
+	line, err := reader.ReadString('\n')
+	if err != nil {
+		return err
+	}
+	return json.Unmarshal([]byte(line), resp)
+}
+
+// readStratumNotification reads a JSON-RPC notification from the pool
+func readStratumNotification(reader *bufio.Reader, notif *StratumNotification) error {
+	line, err := reader.ReadString('\n')
+	if err != nil {
+		return err
+	}
+	return json.Unmarshal([]byte(line), notif)
+}
+
+// submitShare simulates submitting a mining share
+func submitShare(writer *bufio.Writer) error {
+	// Generate fake nonce and hash
+	nonce := fmt.Sprintf("%08x", rand.Uint32())
+	hash := fmt.Sprintf("%064x", rand.Uint64())
+	
+	return sendStratumRequest(writer, rand.Intn(1000)+10, "mining.submit", []interface{}{
+		"minemock",
+		nonce,
+		hash,
+	})
+}
+
+// statsReporter periodically logs statistics
+func statsReporter(verbose bool) {
+	ticker := time.NewTicker(30 * time.Second)
+	defer ticker.Stop()
+	
+	for range ticker.C {
+		shares := atomic.LoadUint64(&shareCount)
+		jobs := atomic.LoadUint64(&jobCount)
+		if verbose {
+			log.Printf("[Stats] Jobs received: %d, Shares submitted: %d", jobs, shares)
+		}
 	}
 }
 
