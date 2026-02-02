@@ -505,9 +505,8 @@ func simulateWorker(id int, load int, wg *sync.WaitGroup, stopChan chan bool, ve
 			}
 			return
 		default:
-			// Simulate work by burning CPU cycles
-			busyWork()
-			time.Sleep(workDuration)
+			// Simulate work by burning CPU cycles for workDuration
+			busyWorkFor(workDuration)
 			
 			// Rest period to control overall load
 			if sleepDuration > 0 {
@@ -517,15 +516,25 @@ func simulateWorker(id int, load int, wg *sync.WaitGroup, stopChan chan bool, ve
 	}
 }
 
-// busyWork performs CPU-intensive calculations to simulate mining
-func busyWork() {
-	// Simple busy work - calculate some hashes (not actual mining hashes)
-	// This consumes CPU without doing anything useful
+// busyWorkFor performs CPU-intensive calculations for the specified duration
+// This actually consumes CPU time instead of just sleeping
+func busyWorkFor(duration time.Duration) {
+	start := time.Now()
 	var result uint64 = 1
-	for i := 0; i < 100000; i++ {
-		result = result*uint64(i+1) + uint64(i)
+	iteration := uint64(0)
+	
+	// Keep doing work until the duration has passed
+	for time.Since(start) < duration {
+		// CPU-intensive calculation
+		result = result*iteration + iteration*iteration
 		if result > 1<<60 {
 			result = 1
+		}
+		iteration++
+		
+		// Prevent the loop from being optimized away
+		if iteration%1000000 == 0 {
+			_ = result
 		}
 	}
 	// Use the result to prevent optimization
