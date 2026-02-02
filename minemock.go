@@ -65,7 +65,61 @@ var (
 	stratumMu   sync.Mutex
 )
 
+// generateWalletAddress generates a realistic-looking Monero wallet address
+// for testing purposes. These addresses are NOT valid and cannot receive funds.
+func generateWalletAddress() {
+	fmt.Println("MineMock Wallet Address Generator")
+	fmt.Println("=================================")
+	fmt.Println()
+	fmt.Println("Generating test wallet addresses for detection testing.")
+	fmt.Println("NOTE: These addresses are NOT valid and cannot receive funds.")
+	fmt.Println()
+
+	// Monero uses Base58 encoding with specific alphabet
+	base58Chars := "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"
+	
+	// Generate standard address (starts with 4, 95 chars)
+	fmt.Println("Standard Address (95 chars, starts with '4'):")
+	standardAddr := generateMoneroAddress(base58Chars, '4', 95)
+	fmt.Println(standardAddr)
+	fmt.Println()
+	
+	// Generate subaddress (starts with 8, 95 chars)
+	fmt.Println("Subaddress (95 chars, starts with '8'):")
+	subAddr := generateMoneroAddress(base58Chars, '8', 95)
+	fmt.Println(subAddr)
+	fmt.Println()
+	
+	// Generate integrated address (starts with 4, 106 chars)
+	fmt.Println("Integrated Address (106 chars, starts with '4'):")
+	integratedAddr := generateMoneroAddress(base58Chars, '4', 106)
+	fmt.Println(integratedAddr)
+	fmt.Println()
+	
+	fmt.Println("Usage example:")
+	fmt.Printf("  minemock -o pool.supportxmr.com:3333 -u %s -t 4 --stratum\n", standardAddr[:20]+"...")
+}
+
+// generateMoneroAddress creates a fake Monero-style address
+func generateMoneroAddress(alphabet string, prefix byte, length int) string {
+	addr := make([]byte, length)
+	addr[0] = prefix
+	
+	// Fill rest with random base58 characters
+	for i := 1; i < length; i++ {
+		addr[i] = alphabet[rand.Intn(len(alphabet))]
+	}
+	
+	return string(addr)
+}
+
 func main() {
+	// Handle subcommands before flag parsing
+	if len(os.Args) > 1 && os.Args[1] == "gen-address" {
+		generateWalletAddress()
+		os.Exit(0)
+	}
+
 	// Common miner flags (XMRig-style)
 	pool := flag.String("o", "", "pool address (e.g., pool.supportxmr.com:3333)")
 	user := flag.String("u", "", "username/wallet address")

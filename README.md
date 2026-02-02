@@ -20,6 +20,7 @@ MineMock is a small Golang tool that imitates the behavior patterns of cryptocur
   - `mining.set_difficulty` — Handle difficulty adjustments
 - **Command-line mimicry** — Accepts common miner flags like `-o` (pool), `-u` (wallet/user), `-p` (password), `-t` (threads)
 - **Built-in pool list** — Reference list of top 10 mining pools (`--list-pools`)
+- **Wallet address generator** — Generate realistic test addresses (`gen-address` command)
 - **No actual mining** — No hash calculations, no wallet addresses validated, no real shares submitted
 
 ## Purpose
@@ -76,6 +77,17 @@ Run:
 ```
 
 ## Usage Examples
+
+### Generate test wallet addresses
+
+```bash
+minemock gen-address
+```
+
+Generates realistic-looking (but invalid) Monero wallet addresses for testing:
+- Standard addresses (95 chars, starts with '4')
+- Subaddresses (95 chars, starts with '8')  
+- Integrated addresses (106 chars, starts with '4')
 
 ### List top mining pools
 
