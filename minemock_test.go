@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"strings"
 	"testing"
+	"time"
 )
 
 // TestGenerateMoneroAddress tests the wallet address generation
@@ -259,14 +260,14 @@ func TestKnownPools(t *testing.T) {
 
 // TestBusyWork tests that the busy work function runs without error
 func TestBusyWork(t *testing.T) {
-	// This is mostly a smoke test - busyWork shouldn't panic
+	// This is mostly a smoke test - busyWorkFor shouldn't panic
 	defer func() {
 		if r := recover(); r != nil {
-			t.Errorf("busyWork panicked: %v", r)
+			t.Errorf("busyWorkFor panicked: %v", r)
 		}
 	}()
 
-	busyWork()
+	busyWorkFor(10 * time.Millisecond)
 }
 
 // TestSubmitShare tests share submission

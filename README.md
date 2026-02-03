@@ -8,6 +8,57 @@ A harmless cryptocurrency miner simulator for detection testing. Generates reali
 
 MineMock is a small Golang tool that imitates the behavior patterns of cryptocurrency mining software without performing any actual mining. It simulates CPU load patterns, creates network connections to common mining pool addresses, and mimics command-line arguments used by popular miners (XMRig, CGMiner, etc.) — all without wasting electricity, generating profit, or participating in botnet activity.
 
+## Quick Start (3 Steps)
+
+Get up and running with MineMock in under a minute:
+
+### Step 1: Download the Binary
+
+**Windows (PowerShell):**
+```powershell
+# Download the latest release (adjust architecture if needed: amd64 or arm64)
+Invoke-WebRequest -Uri "https://github.com/RuneBot14/minemock/releases/latest/download/minemock_windows_amd64.exe" -OutFile "minemock.exe"
+```
+
+**Linux (Bash):**
+```bash
+# Download the latest release (adjust architecture if needed: amd64 or arm64)
+curl -L -o minemock "https://github.com/RuneBot14/minemock/releases/latest/download/minemock_linux_amd64"
+chmod +x minemock
+```
+
+### Step 2: See the Examples
+
+Run the help command to see ready-to-use examples:
+
+**Windows:**
+```powershell
+.\minemock.exe -h
+```
+
+**Linux:**
+```bash
+./minemock -h
+```
+
+Look for the "Ready-to-Use Examples" section in the output — you'll see 3 copy-pasteable command lines with realistic pool addresses and wallet addresses.
+
+### Step 3: Run an Example
+
+Copy one of the examples from the help output and paste it into your terminal. For example:
+
+**Windows:**
+```powershell
+.\minemock.exe -o pool.supportxmr.com:3333 -u 44abcd...wallet -t 4 --cpu-load=50
+```
+
+**Linux:**
+```bash
+./minemock -o pool.supportxmr.com:3333 -u 44abcd...wallet -t 4 --cpu-load=50
+```
+
+That's it! MineMock is now running and generating realistic mining artifacts for your detection tests. Press `Ctrl+C` to stop.
+
 ## Features
 
 - **Realistic CPU patterns** — Generates configurable CPU load spikes that resemble mining algorithms
